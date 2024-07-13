@@ -7,6 +7,10 @@ from openai import OpenAI
 from anthropic import Anthropic
 from firecrawl import FirecrawlApp
 
+from colorama import Fore, Style, init
+
+init(autoreset=True)
+
 
 load_dotenv()
 
@@ -122,42 +126,15 @@ def scrape_url(url: str) -> str:
     return markdown_data
 
 
-def extract_full_page_data(image_data: str, page_data: str) -> dict:
-    print("!! extract_full_page_data")
+def extract_full_page_data_openai(image_data: str, page_data: str) -> dict:
+    print("!! extract_full_page_data_openai")
     response = openai.chat.completions.create(
         model="gpt-4o",
         response_format={"type": "json_object"},
         messages=[
             {
                 "role": "user",
-                "content": cleandoc(
-                    f"""
-                    Given the following extracted structured object from a webpage:
-                    
-                    <structured-subset-data>
-                    {image_data}
-                    </structured-subset-data>
-                    
-                    and the following unstructured markdown data containing the full webpage data:
-                    
-                    <full-page-data>
-                    {page_data}
-                    </full-page-data>
-                    
-                    
-                    Your job is to identify the structured object in the full page data.
-                    You must then identify all the other data in the full page data that shares approximately the same structure as the structured subset data.
-                    You must then extract all of the other sets of data that share the similar structure as the structured subset data.
-                    
-                    Rules for extraction:
-                    - Ignore slight variations in the structure, such as special assets or supporting components.
-                        - Focus mainly on the main data structure, such as the main content or main components.
-                    - You must extract the data in the same JSON format as the structured subset data.
-                    - **You must extract as many sets as possible.**
-                    - If you cannot find any data in the full page data that matches the structured subset data, return an empty object.
-                    
-                """
-                ),
+                "content": create_extraction_prompt(image_data, page_data),
             },
         ],
     )
@@ -168,7 +145,8 @@ def extract_full_page_data(image_data: str, page_data: str) -> dict:
 
 def extract_full_page_data_anthropic(image_data: str, page_data: str) -> dict:
     print("!! extract_full_page_data_anthropic")
-    message = anthropic.messages.create(
+
+    with anthropic.messages.stream(
         model="claude-3-5-sonnet-20240620",
         max_tokens=1000,
         temperature=0,
@@ -178,9 +156,19 @@ def extract_full_page_data_anthropic(image_data: str, page_data: str) -> dict:
                 "role": "user",
                 "content": create_extraction_prompt(image_data, page_data),
             },
+            {
+                "role": "assistant",
+                "content": "{",
+            },
         ],
-    )
-    print(message.content[0].text)
+    ) as stream:
+        print(f"{Fore.GREEN}{{", end="")
+        for text in stream.text_stream:
+            print(
+                f"{Fore.GREEN}{text}{Style.RESET_ALL}",
+                end="",
+                flush=True,
+            )
 
 
 if __name__ == "__main__":
@@ -202,8 +190,6 @@ if __name__ == "__main__":
     with open(f"./image_descriptions/{ITER}.txt", "r") as file:
         image_data = file.read()
 
-    print(image_data)
-    print()
-    print(page_data)
     # full_extracted_data = extract_full_page_data(image_data, page_data)
     extract_full_page_data_anthropic(image_data, page_data)
+    # extract_full_page_data_openai(image_data, page_data)
