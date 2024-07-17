@@ -2,6 +2,15 @@ import base64
 import time
 import os
 
+from typing import Optional
+
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+
 from inspect import cleandoc
 from dotenv import load_dotenv
 
@@ -31,6 +40,8 @@ SYSTEM_PROMPT = cleandoc(
 
 init(autoreset=True)
 load_dotenv()
+
+driver = webdriver.Chrome()
 anthropic = Anthropic(api_key=ANTHROPIC_API_KEY)
 openai = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -40,7 +51,7 @@ def base64_encode_image(image_path: str) -> str:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
 
-def extract_data_from_image_0(image_path: str) -> str:
+def visually_extract_data_from_image(image_path: str) -> str:
     print("!! extract_data_from_image")
     # Getting the base64 string
     base64_image = base64_encode_image(image_path)
@@ -73,67 +84,25 @@ def extract_data_from_image_0(image_path: str) -> str:
         max_tokens=300,
     )
 
-    print(response.choices[0].message.content)
-
     return response.choices[0].message.content
 
 
-def extract_data_from_image(image_path: str) -> str:
-    print("!! extract_data_from_image")
-
-    base64_image = base64_encode_image(image_path)
-
-    message = anthropic.messages.create(
-        model="claude-3-5-sonnet-20240620",
-        max_tokens=1000,
-        temperature=0,
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/png",
-                            "data": base64_image,
-                        },
-                    },
-                    {
-                        "type": "text",
-                        "text": cleandoc(
-                            """
-                            Yyou are an expert web scraper from visual images.
-                            Look at this image, extract the key information into a structured JSON format.
-                            Infer what are the appropriate fields and data types.
-                            Ensure that the JSON format is structured, easy to understand, and follows best practices.
-                            """
-                        ),
-                    },
-                ],
-            },
-            {
-                "role": "assistant",
-                "content": "{",
-            },
-        ],
-    )
-    # return message.content[0].text but with the `{` added at the beginning
-    return "{" + message.content[0].text
-
-
-def scrape_url(url: str) -> str:
+def scrape_url(url: str) -> Optional[str]:
     print("!! scrape_url")
     app = FirecrawlApp(api_key=FIRECRAWL_API_KEY)
 
     try:
         scraped_data = app.scrape_url(url)
+        markdown_data = scraped_data.get("markdown")
+        if not markdown_data:
+            print(f"{Fore.RED}No markdown data found for URL: {url}{Style.RESET_ALL}")
+            return None
+        return markdown_data
     except Exception as e:
-        print(f"Unable to scrape the URL: {url}. Error: {e}")
-        return "Unable to scrape the URL."
-    markdown_data = scraped_data.get("markdown")
-
-    return markdown_data
+        print(
+            f"{Fore.RED}Unable to scrape the URL: {url}. Error: {str(e)}{Style.RESET_ALL}"
+        )
+        return None
 
 
 def extract_full_page_data(image_data: str, page_data: str) -> dict:
@@ -222,14 +191,23 @@ def main():
 
         image_path = os.path.join("screenshots", os.listdir("screenshots")[0])
 
-        image_data_0 = extract_data_from_image_0(image_path)
-        print(image_data_0)
+        current_url = driver.current_url
+        print(f"Current URL: {current_url}")
 
-        image_data = extract_data_from_image(image_path)
-        print(image_data)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            image_future = executor.submit(visually_extract_data_from_image, image_path)
+            scrape_future = executor.submit(scrape_url, current_url)
 
-        # page_data = scrape_url(URL)
-        # extract_full_page_data(image_data, page_data)
+            concurrent.futures.wait([image_future, scrape_future])
+
+        image_data = image_future.result()
+        page_data = scrape_future.result()
+        if not page_data:
+            print(
+                f"{Fore.RED}No page data found for URL: {current_url}{Style.RESET_ALL}"
+            )
+            continue
+        extract_full_page_data(image_data, page_data)
 
 
 if __name__ == "__main__":
