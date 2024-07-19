@@ -28,7 +28,7 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 TEST_RUN_DATA_DIR = "test_run_data"
 URL = "https://www.producthunt.com/leaderboard/daily/2024/7/13?ref=header_nav"
-ITER = 4
+ITER = 5
 
 SYSTEM_PROMPT = cleandoc(
     """
@@ -68,7 +68,7 @@ def visually_extract_data_from_image(image_path: str) -> Optional[str]:
                         "type": "text",
                         "text": cleandoc(
                             """
-                            Yyou are an expert web scraper from visual images.
+                            You are an expert web scraper from visual images.
                             Look at this image, extract the key information into a structured JSON format.
                             Infer what are the appropriate fields and data types.
                             Ensure that the JSON format is structured, easy to understand, and follows best practices.
@@ -150,8 +150,8 @@ def extract_full_page_data(image_data: str, page_data: str) -> dict:
                         - Do **not** extend the JSON format to include additional fields or data.
                     - **You must extract as many sets as possible.**
                       - If you encounter a set of data that is not in the same JSON format as the structured subset data, you can skip it. Keep extracting the next set of data.
-                    - If you cannot find any data in the full page data that matches the structured subset data, return an empty object.
-                    
+                      - Iterate through the <full-page-data> and extract as many sets as possible, according to the rules above.
+                    - If you cannot find any data in the full page data that matches the structured subset data, return an empty object.  
                 """
                 ),
             },
@@ -199,6 +199,7 @@ def main():
 
         image_path = os.path.join("screenshots", os.listdir("screenshots")[0])
 
+        driver.switch_to.window(driver.window_handles[-1])
         current_url = driver.current_url
         print(f"Current URL: {current_url}")
 
@@ -209,10 +210,11 @@ def main():
             concurrent.futures.wait([image_future, scrape_future])
 
         image_data = image_future.result()
-        print(f"Image Data: {image_data}")
         if not image_data:
             print(f"{Fore.RED}No image data found in the screenshot.{Style.RESET_ALL}")
             continue
+        print(f"Image Data: {image_data}")
+
         page_data = scrape_future.result()
         if not page_data:
             print(
@@ -220,7 +222,9 @@ def main():
             )
             continue
 
-        print(f"Page Data: {page_data}")
+        # print(f"Page Data: {page_data}")
+        with open(f"{TEST_RUN_DATA_DIR}/scraped_webpages/{ITER}.txt", "w") as file:
+            file.write(page_data)
 
         extract_full_page_data(image_data, page_data)
 
