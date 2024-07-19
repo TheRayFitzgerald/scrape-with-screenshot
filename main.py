@@ -1,6 +1,7 @@
 import base64
 import time
 import os
+import json
 
 from typing import Optional
 
@@ -51,7 +52,7 @@ def base64_encode_image(image_path: str) -> str:
         return base64.b64encode(image_file.read()).decode("utf-8")
 
 
-def visually_extract_data_from_image(image_path: str) -> str:
+def visually_extract_data_from_image(image_path: str) -> Optional[str]:
     print("!! extract_data_from_image")
     # Getting the base64 string
     base64_image = base64_encode_image(image_path)
@@ -71,6 +72,7 @@ def visually_extract_data_from_image(image_path: str) -> str:
                             Look at this image, extract the key information into a structured JSON format.
                             Infer what are the appropriate fields and data types.
                             Ensure that the JSON format is structured, easy to understand, and follows best practices.
+                            If you are unable to extract any structured data, return an empty object - '{{}}'.
                             """
                         ),
                     },
@@ -84,7 +86,11 @@ def visually_extract_data_from_image(image_path: str) -> str:
         max_tokens=300,
     )
 
-    return response.choices[0].message.content
+    if response.choices and response.choices[0].message.content:
+        response_dict = json.loads(response.choices[0].message.content)
+        return response_dict if response_dict else None
+
+    return None
 
 
 def scrape_url(url: str) -> Optional[str]:
@@ -92,7 +98,9 @@ def scrape_url(url: str) -> Optional[str]:
     app = FirecrawlApp(api_key=FIRECRAWL_API_KEY)
 
     try:
-        scraped_data = app.scrape_url(url)
+        scraped_data = app.scrape_url(
+            url, params={"pageOptions": {"onlyMainContent": True}}
+        )
         markdown_data = scraped_data.get("markdown")
         if not markdown_data:
             print(f"{Fore.RED}No markdown data found for URL: {url}{Style.RESET_ALL}")
@@ -110,7 +118,7 @@ def extract_full_page_data(image_data: str, page_data: str) -> dict:
 
     with anthropic.messages.stream(
         model="claude-3-5-sonnet-20240620",
-        max_tokens=1000,
+        max_tokens=3000,
         temperature=0,
         system=SYSTEM_PROMPT,
         messages=[
@@ -201,12 +209,19 @@ def main():
             concurrent.futures.wait([image_future, scrape_future])
 
         image_data = image_future.result()
+        print(f"Image Data: {image_data}")
+        if not image_data:
+            print(f"{Fore.RED}No image data found in the screenshot.{Style.RESET_ALL}")
+            continue
         page_data = scrape_future.result()
         if not page_data:
             print(
                 f"{Fore.RED}No page data found for URL: {current_url}{Style.RESET_ALL}"
             )
             continue
+
+        print(f"Page Data: {page_data}")
+
         extract_full_page_data(image_data, page_data)
 
 
