@@ -3,6 +3,9 @@
 
 An *visual* web scraper built using the GPT-4 Vision, Claude 3.5 Sonnet, 
 [Firecrawl](https://www.firecrawl.dev/), and Selenium.
+It's currently in development and designed to scrape array-like data from websites.
+For example, you can take a screenshot of a section of a website that contains a list of products, and the scraper will output a JSON file with the product names, prices, and other relevant information.
+
 ## Features
 * Take screenshot of section of any website to scrape similar data.
 * Strucuted JSON output.
@@ -11,17 +14,23 @@ An *visual* web scraper built using the GPT-4 Vision, Claude 3.5 Sonnet,
 
 ### Installation
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python3 main.py
-```
-
-Don't forget to add your `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, and `FIRECRAWL_API_KEY` to a `.env` file.
+1. Clone this repository and fill in the necessary API keys in the `.env` file:
+   ```bash
+   git clone https://github.com/TheRayFitzgerald/visual-scraper.git
+   cd visual-scraper
+   cp .env.example .env
+   ```
+2. Set your screenshots destination to `./screenshots/` directory in the root of the project (guide: [mac](https://www.macrumors.com/how-to/change-screenshots-folder/) | [windows, i guess?](https://www.xda-developers.com/how-change-screenshots-saved-windows-11/)).
+3. Install the dependencies and run the script:
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+    python3 main.py
+    ```
+4. A browser window will open, take a screenshot of the section of the website you want to scrape. The script will then scrape the website and output the results to a JSON file. 🎉
+   
 
 ### Example Queries
 
-* Get all the relevant details about the team members working at Intercom (https://www.intercom.com/about). Write the results to a CSV file.
-* "What are the first 5 posts listed on the hacker news site for today? Write the results to a JSON file."
-* How many times is Nvidia mentioned in this article https://finance.yahoo.com/news/nvidia-stock-rises-after-10-for-1-stock-split-204412528.html ? Cite the instances where it is mentioned.
+* 

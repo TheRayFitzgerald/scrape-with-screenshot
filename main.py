@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 from anthropic import Anthropic
 from openai import OpenAI
 from firecrawl import FirecrawlApp
+from functools import lru_cache
 
 from colorama import Fore, Style, init
 
@@ -54,7 +55,7 @@ def base64_encode_image(image_path: str) -> str:
 
 def visually_extract_data_from_image(image_path: str) -> Optional[str]:
     print("!! extract_data_from_image")
-    # Getting the base64 string
+
     base64_image = base64_encode_image(image_path)
 
     response = openai.chat.completions.create(
@@ -69,10 +70,18 @@ def visually_extract_data_from_image(image_path: str) -> Optional[str]:
                         "text": cleandoc(
                             """
                             You are an expert web scraper from visual images.
-                            Look at this image, extract the key information into a structured JSON format.
-                            Infer what are the appropriate fields and data types.
-                            Ensure that the JSON format is structured, easy to understand, and follows best practices.
-                            If you are unable to extract any structured data, return an empty object - '{{}}'.
+                            Look at this image, extract the key data information into a structured JSON format.
+                            
+                            Rules for extraction:
+                                - Infer what are the appropriate fields and data types.
+                                - Do not extract any UI elements or non-data information.
+                                
+                            Rules for JSON format:
+                                - Ensure that the JSON format is structured, easy to understand, and follows best practices.
+                                - Use sub-objects where necessary to represent nested data.
+                                - If you are unable to extract any structured data, return an empty object - '{{}}'.
+                                
+                            Think step by step and extract the structured data from the image.                                
                             """
                         ),
                     },
@@ -93,6 +102,7 @@ def visually_extract_data_from_image(image_path: str) -> Optional[str]:
     return None
 
 
+@lru_cache
 def scrape_url(url: str) -> Optional[str]:
     print("!! scrape_url")
     app = FirecrawlApp(api_key=FIRECRAWL_API_KEY)
@@ -191,13 +201,13 @@ def main():
             f"{Fore.RED}\nWaiting for the user to take a screenshot...{Style.RESET_ALL}"
         )
         while True:
-            if os.listdir("screenshots"):
-                # sleep for 1 second to ensure the image is saved
-                time.sleep(1)
+            time.sleep(1)
+            files = [f for f in os.listdir("screenshots") if f != ".gitignore"]
+            if files:
                 print(f"{Fore.GREEN}Screenshot taken!{Style.RESET_ALL}")
                 break
 
-        image_path = os.path.join("screenshots", os.listdir("screenshots")[0])
+        image_path = os.path.join("screenshots", files[0])
 
         driver.switch_to.window(driver.window_handles[-1])
         current_url = driver.current_url
@@ -213,7 +223,6 @@ def main():
         if not image_data:
             print(f"{Fore.RED}No image data found in the screenshot.{Style.RESET_ALL}")
             continue
-        print(f"Image Data: {image_data}")
 
         page_data = scrape_future.result()
         if not page_data:
@@ -222,7 +231,6 @@ def main():
             )
             continue
 
-        # print(f"Page Data: {page_data}")
         with open(f"{TEST_RUN_DATA_DIR}/scraped_webpages/{ITER}.txt", "w") as file:
             file.write(page_data)
 
