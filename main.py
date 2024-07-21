@@ -9,8 +9,6 @@ import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 
 from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 
 from inspect import cleandoc
 from dotenv import load_dotenv
@@ -40,7 +38,6 @@ SYSTEM_PROMPT = cleandoc(
 init(autoreset=True)
 load_dotenv()
 
-driver = webdriver.Chrome()
 anthropic = Anthropic(api_key=ANTHROPIC_API_KEY)
 openai = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -177,47 +174,52 @@ def extract_full_page_data(image_data: str, page_data: str) -> dict:
             )
 
 
-def main():
+def clean_screenshots_directory() -> None:
+    os.system("rm -rf screenshots/*")
+    os.system("mkdir -p screenshots")
+
+
+def wait_for_screenshot() -> str:
+    print(f"{Fore.RED}\nWaiting for the user to take a screenshot...{Style.RESET_ALL}")
     while True:
-        os.system("rm -rf screenshots/*")
-        os.system("mkdir -p screenshots")
+        time.sleep(1)
+        files = [f for f in os.listdir("screenshots") if f != ".gitignore"]
+        if files:
+            print(f"{Fore.GREEN}Screenshot taken!{Style.RESET_ALL}")
+            return os.path.join("screenshots", files[0])
 
-        print(
-            f"{Fore.RED}\nWaiting for the user to take a screenshot...{Style.RESET_ALL}"
-        )
-        while True:
-            time.sleep(1)
-            files = [f for f in os.listdir("screenshots") if f != ".gitignore"]
-            if files:
-                print(f"{Fore.GREEN}Screenshot taken!{Style.RESET_ALL}")
-                break
 
-        image_path = os.path.join("screenshots", files[0])
+def process_image_and_scrape_data(image_path: str, driver: webdriver.Chrome) -> None:
+    driver.switch_to.window(driver.window_handles[-1])
+    current_url = driver.current_url
+    print(f"Current URL: {current_url}")
 
-        driver.switch_to.window(driver.window_handles[-1])
-        current_url = driver.current_url
-        print(f"Current URL: {current_url}")
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        image_future = executor.submit(visually_extract_data_from_image, image_path)
+        scrape_future = executor.submit(scrape_url, current_url)
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            image_future = executor.submit(visually_extract_data_from_image, image_path)
-            scrape_future = executor.submit(scrape_url, current_url)
+        concurrent.futures.wait([image_future, scrape_future])
 
-            concurrent.futures.wait([image_future, scrape_future])
+    image_data = image_future.result()
+    if not image_data:
+        print(f"{Fore.RED}No image data found in the screenshot.{Style.RESET_ALL}")
+        return
 
-        image_data = image_future.result()
-        if not image_data:
-            print(f"{Fore.RED}No image data found in the screenshot.{Style.RESET_ALL}")
-            continue
+    page_data = scrape_future.result()
+    if not page_data:
+        print(f"{Fore.RED}No page data found for URL: {current_url}{Style.RESET_ALL}")
+        return
 
-        page_data = scrape_future.result()
-        if not page_data:
-            print(
-                f"{Fore.RED}No page data found for URL: {current_url}{Style.RESET_ALL}"
-            )
-            continue
+    extract_full_page_data(image_data, page_data)
 
-        extract_full_page_data(image_data, page_data)
+
+def run_visual_scraper_task(driver: webdriver.Chrome) -> None:
+    clean_screenshots_directory()
+    image_path = wait_for_screenshot()
+    process_image_and_scrape_data(image_path, driver)
 
 
 if __name__ == "__main__":
-    main()
+    driver = webdriver.Chrome()
+    while True:
+        run_visual_scraper_task(driver)
