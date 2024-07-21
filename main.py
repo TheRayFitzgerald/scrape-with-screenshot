@@ -3,7 +3,7 @@ import time
 import os
 import json
 
-from typing import Optional
+from typing import Optional, Tuple
 
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
@@ -117,8 +117,41 @@ def scrape_url(url: str) -> Optional[str]:
         return None
 
 
-def extract_full_page_data(image_data: str, page_data: str) -> dict:
+def extract_full_page_data(image_data: str, page_data: str) -> Tuple[str, str]:
     print("!! extract_full_page_data")
+
+    response = "{\n"
+
+    prompt = cleandoc(
+        f"""
+        Given the following extracted structured object from a webpage:
+        
+        <structured-subset-data>
+        {image_data}
+        </structured-subset-data>
+        
+        and the following unstructured markdown data containing the full webpage data:
+        
+        <full-page-data>
+        {page_data}
+        </full-page-data>
+        
+        
+        Your job is to identify the structured object in the full page data.
+        You must then identify all the other data in the full page data that shares approximately the same structure as the structured subset data.
+        You must then extract all of the other sets of data that share the similar structure as the structured subset data.
+        
+        Rules for extraction:
+        - Ignore slight variations in the structure, such as special assets or supporting components.
+            - Focus mainly on the main data structure, such as the main content or main components.
+        - You must extract the data in the same JSON format as the structured subset data.
+            - Do **not** extend the JSON format to include additional fields or data.
+        - **You must extract as many sets as possible.**
+            - If you encounter a set of data that is not in the same JSON format as the structured subset data, you can skip it. Keep extracting the next set of data.
+            - Iterate through the <full-page-data> and extract as many sets as possible, according to the rules above.
+        - If you cannot find any data in the full page data that matches the structured subset data, return an empty object.  
+        """
+    )
 
     with anthropic.messages.stream(
         model="claude-3-5-sonnet-20240620",
@@ -128,36 +161,7 @@ def extract_full_page_data(image_data: str, page_data: str) -> dict:
         messages=[
             {
                 "role": "user",
-                "content": cleandoc(
-                    f"""
-                    Given the following extracted structured object from a webpage:
-                    
-                    <structured-subset-data>
-                    {image_data}
-                    </structured-subset-data>
-                    
-                    and the following unstructured markdown data containing the full webpage data:
-                    
-                    <full-page-data>
-                    {page_data}
-                    </full-page-data>
-                    
-                    
-                    Your job is to identify the structured object in the full page data.
-                    You must then identify all the other data in the full page data that shares approximately the same structure as the structured subset data.
-                    You must then extract all of the other sets of data that share the similar structure as the structured subset data.
-                    
-                    Rules for extraction:
-                    - Ignore slight variations in the structure, such as special assets or supporting components.
-                        - Focus mainly on the main data structure, such as the main content or main components.
-                    - You must extract the data in the same JSON format as the structured subset data.
-                        - Do **not** extend the JSON format to include additional fields or data.
-                    - **You must extract as many sets as possible.**
-                      - If you encounter a set of data that is not in the same JSON format as the structured subset data, you can skip it. Keep extracting the next set of data.
-                      - Iterate through the <full-page-data> and extract as many sets as possible, according to the rules above.
-                    - If you cannot find any data in the full page data that matches the structured subset data, return an empty object.  
-                """
-                ),
+                "content": prompt,
             },
             {
                 "role": "assistant",
@@ -172,6 +176,8 @@ def extract_full_page_data(image_data: str, page_data: str) -> dict:
                 end="",
                 flush=True,
             )
+            response += text
+    return prompt, response
 
 
 def clean_screenshots_directory() -> None:
@@ -189,7 +195,9 @@ def wait_for_screenshot() -> str:
             return os.path.join("screenshots", files[0])
 
 
-def process_image_and_scrape_data(image_path: str, driver: webdriver.Chrome) -> None:
+def process_image_and_scrape_data(
+    image_path: str, driver: webdriver.Chrome
+) -> Optional[Tuple[str, str]]:
     driver.switch_to.window(driver.window_handles[-1])
     current_url = driver.current_url
     print(f"Current URL: {current_url}")
@@ -210,7 +218,7 @@ def process_image_and_scrape_data(image_path: str, driver: webdriver.Chrome) -> 
         print(f"{Fore.RED}No page data found for URL: {current_url}{Style.RESET_ALL}")
         return
 
-    extract_full_page_data(image_data, page_data)
+    return extract_full_page_data(image_data, page_data)
 
 
 def run_visual_scraper_task(driver: webdriver.Chrome) -> None:
