@@ -1,0 +1,10 @@
+.env
+
+**pycache**/
+venv/
+/venv/
+venv
+
+**.DS_Store**
+
+todo.txt

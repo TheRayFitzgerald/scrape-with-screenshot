@@ -27,9 +27,6 @@ from colorama import Fore, Style, init
 FIRECRAWL_API_KEY = os.getenv("FIRECRAWL_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-TEST_RUN_DATA_DIR = "test_run_data"
-URL = "https://www.producthunt.com/leaderboard/daily/2024/7/13?ref=header_nav"
-ITER = 5
 
 SYSTEM_PROMPT = cleandoc(
     """
@@ -180,19 +177,7 @@ def extract_full_page_data(image_data: str, page_data: str) -> dict:
             )
 
 
-def test_run():
-    with open(f"{TEST_RUN_DATA_DIR}/scraped_webpages/{ITER}.txt", "r") as file:
-        page_data = file.read()
-
-    with open(f"{TEST_RUN_DATA_DIR}/image_descriptions/{ITER}.txt", "r") as file:
-        image_data = file.read()
-
-    extract_full_page_data(image_data, page_data)
-
-
 def main():
-    with open(f"{TEST_RUN_DATA_DIR}/scraped_webpages/{ITER}.txt", "r") as file:
-        page_data = file.read()
     while True:
         os.system("rm -rf screenshots/*")
         os.system("mkdir -p screenshots")
@@ -230,9 +215,6 @@ def main():
                 f"{Fore.RED}No page data found for URL: {current_url}{Style.RESET_ALL}"
             )
             continue
-
-        with open(f"{TEST_RUN_DATA_DIR}/scraped_webpages/{ITER}.txt", "w") as file:
-            file.write(page_data)
 
         extract_full_page_data(image_data, page_data)
 
