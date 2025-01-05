@@ -28,7 +28,3 @@ For example, you can take a screenshot of a section of a website that contains a
     ```
 4. A browser window will open, take a screenshot of the section of the website you want to scrape. The script will then scrape the website and output the results to a JSON file. 🎉
    
-
-### Example Queries
-
-* 
