@@ -1,8 +1,6 @@
+# Scrape with Screenshot
 
-# Visual Web Scraper
-
-An *visual* web scraper built using the GPT-4 Vision, Claude 3.5 Sonnet, 
-[Firecrawl](https://www.firecrawl.dev/), and Selenium.
+A web scraper that allows you to take a screenshot of a section of a website and scrape the data from it.
 It's currently in development and designed to scrape array-like data from websites.
 For example, you can take a screenshot of a section of a website that contains a list of products, and the scraper will output a JSON file with the product names, prices, and other relevant information.
 
@@ -16,8 +14,8 @@ For example, you can take a screenshot of a section of a website that contains a
 
 1. Clone this repository and fill in the necessary API keys in the `.env` file:
    ```bash
-   git clone https://github.com/TheRayFitzgerald/visual-scraper.git
-   cd visual-scraper
+   git clone https://github.com/TheRayFitzgerald/scrape-with-screenshot.git
+   cd scrape-with-screenshot
    cp .env.example .env
    ```
 2. Set your screenshots destination to `./screenshots/` directory in the root of the project (guide: [mac](https://www.macrumors.com/how-to/change-screenshots-folder/) | [windows, i guess?](https://www.xda-developers.com/how-change-screenshots-saved-windows-11/)).
