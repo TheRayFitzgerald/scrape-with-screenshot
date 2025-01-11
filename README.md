@@ -1,12 +1,11 @@
 # Scrape with Screenshot
 
-A web scraper that allows you to take a screenshot of a section of a website and scrape the data from it.
-It's currently in development and designed to scrape array-like data from websites.
-For example, you can take a screenshot of a section of a website that contains a list of products, and the scraper will output a JSON file with the product names, prices, and other relevant information.
+A smart web scraper that uses AI to extract structured data from any website section you screenshot. Simply capture a part of a webpage containing repeated information (like product listings, search results, or tables), and the AI will automatically identify and extract the relevant data patterns.
 
 ## Features
-* Take screenshot of section of any website to scrape similar data.
-* Strucuted JSON output.
+* AI-powered data extraction from webpage screenshots
+* Automatic pattern recognition for similar data elements
+* Structured JSON output
 
 ## Usage
 
